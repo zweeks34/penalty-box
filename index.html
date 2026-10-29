@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- BEGIN:HEAD (copied into the preview build) -->
+<title>Penalty Box</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Penalty time and expiration tracker for youth ice hockey game clock operators.">
+<meta name="theme-color" content="#0c121c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=B612+Mono:wght@400;700&display=swap">
+<!-- END:HEAD -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!-- BEGIN:BODY -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1>Penalty Box</h1>
+    </div>
+    <div class="strength" id="strength" aria-live="polite"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- Clock check: type what the scoreboard shows to see each penalty clock -->
+  <section class="check" aria-labelledby="check-h">
+    <div class="check-row">
+      <h2 id="check-h" class="eyebrow">Scoreboard now</h2>
+      <div class="seg" id="check-period" role="radiogroup" aria-label="Current period"></div>
+      <input id="check-clock" class="clock-input" type="text" inputmode="numeric" autocomplete="off" placeholder="mm:ss" aria-label="Current game clock">
+      <button class="btn-ghost small" id="check-clear" type="button">Clear</button>
+    </div>
+    <p class="hint" id="check-hint">Enter the game clock to see what each penalty clock should read.</p>
+  </section>
+
+  <section class="board" id="board" aria-label="Penalties"></section>
+
+  <section class="panel" aria-labelledby="log-h">
+    <div class="panel-head">
+      <h2 id="log-h">Game log</h2>
+      <span class="count" id="log-count"></span>
+    </div>
+    <ol class="log" id="log"></ol>
+    <div class="row-actions">
+      <button class="btn" id="btn-share" type="button" hidden>Share CSV</button>
+      <button class="btn" id="btn-csv" type="button">Download CSV</button>
+      <button class="btn" id="btn-copy" type="button">Copy log</button>
+    </div>
+    <textarea id="copy-fallback" class="copy-fallback" readonly hidden aria-label="Log text"></textarea>
+  </section>
+
+  <!-- Collapsible: tap the heading. Open/closed state is remembered per phone (app.js). -->
+  <details class="panel collapsible" id="sec-setup" open>
+    <summary class="panel-head">
+      <h2 id="setup-h">Game setup</h2>
+      <span class="count when-closed" id="setup-summary"></span>
+    </summary>
+    <div class="panel-body">
+    <!-- Team cards (name, logo, color, saved-team picker) are built by app.js -->
+    <div class="team-cards" id="cfg-teams"></div>
+    <p class="hint warn" id="cfg-color-warn" hidden>Both teams have similar colors. Use logos or pick a different color so the buttons are easy to tell apart.</p>
+    <div class="field">
+      <span>Period lengths</span>
+      <div class="period-lens" id="cfg-periods"></div>
+      <p class="hint">Shorten a period mid-game and every carry-over recalculates.</p>
+    </div>
+    <div class="field">
+      <span>Overtime</span>
+      <div class="seg" id="cfg-ot" role="radiogroup" aria-label="Overtime length"></div>
+    </div>
+    <div class="field">
+      <span>Default minor</span>
+      <div class="seg" id="cfg-minor" role="radiogroup" aria-label="Default minor length"></div>
+    </div>
+    <div class="field inline">
+      <label class="toggle"><input type="checkbox" id="cfg-wake"><span>Keep screen awake</span></label>
+    </div>
+    <div class="row-actions">
+      <button class="btn danger" id="btn-new" type="button">New game</button>
+      <button class="btn-ghost" id="btn-sample" type="button">Load example game</button>
+    </div>
+    </div>
+  </details>
+
+  <details class="panel collapsible" id="sec-teams">
+    <summary class="panel-head">
+      <h2 id="teams-h">Team list</h2>
+      <span class="count" id="teams-count"></span>
+    </summary>
+    <div class="panel-body">
+    <ul class="team-list" id="team-list"></ul>
+    <div class="row-actions">
+      <button class="btn" id="btn-teams-share" type="button" hidden>Share teams.json</button>
+      <button class="btn" id="btn-teams-export" type="button">Download teams.json</button>
+    </div>
+    <p class="hint">To share this list with the other volunteers, upload <code>teams.json</code> to the app’s GitHub repo. Their apps pick it up the next time they open with signal.</p>
+    </div>
+  </details>
+
+  <footer class="foot">
+    <p>Times are projections from the game clock. A power-play goal recalculates every penalty after it. Always confirm against the referee's call.</p>
+  </footer>
+</main>
+
+<nav class="actionbar" aria-label="Add">
+  <div class="actionbar-inner">
+    <!-- Home/Away buttons are re-rendered by app.js with team name, color and logo -->
+    <button class="act home" type="button" data-add="penalty" data-team="home"><span class="act-text"><small>Home</small><span>Penalty</span></span></button>
+    <button class="act goal" type="button" data-add="goal"><span class="act-text"><small>Goal</small><span class="score">0–0</span></span></button>
+    <button class="act away" type="button" data-add="penalty" data-team="away"><span class="act-text"><small>Away</small><span>Penalty</span></span></button>
+  </div>
+</nav>
+
+<!-- Entry sheet (penalty or goal) -->
+<div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
+<form class="sheet" id="sheet" hidden autocomplete="off" novalidate>
+  <div class="sheet-head">
+    <h2 id="sheet-title">Penalty</h2>
+    <button type="button" class="btn-ghost small" id="sheet-close">Cancel</button>
+  </div>
+
+  <div class="field">
+    <span>Team</span>
+    <div class="seg team-seg" id="f-team" role="radiogroup" aria-label="Team"></div>
+  </div>
+
+  <div class="setup-grid" data-for="penalty">
+    <label class="field"><span>Player #</span><input id="f-player" type="text" inputmode="numeric" maxlength="3"></label>
+    <label class="field"><span>Served by # <em>optional</em></span><input id="f-served" type="text" inputmode="numeric" maxlength="3"></label>
+  </div>
+  <label class="field" data-for="goal"><span>Scorer # <em>optional</em></span><input id="f-scorer" type="text" inputmode="numeric" maxlength="3"></label>
+
+  <div class="field" data-for="penalty">
+    <span>Penalty</span>
+    <div class="chips" id="f-kind" role="radiogroup" aria-label="Penalty type"></div>
+  </div>
+  <div class="field" data-for="penalty">
+    <span>Time</span>
+    <div class="chips mono" id="f-duration" role="radiogroup" aria-label="Penalty length"></div>
+  </div>
+  <label class="field" data-for="penalty"><span>Infraction <em>optional</em></span>
+    <select id="f-infraction"></select>
+  </label>
+
+  <div class="field">
+    <span>When (game clock)</span>
+    <div class="when">
+      <div class="seg" id="f-period" role="radiogroup" aria-label="Period"></div>
+      <input id="f-clock" class="clock-input" type="text" inputmode="numeric" placeholder="mm:ss" aria-label="Game clock">
+    </div>
+  </div>
+
+  <label class="toggle" data-for="penalty"><input type="checkbox" id="f-coinc"><span>Coincidental (no change to team strength)</span></label>
+
+  <div class="preview" id="f-preview" aria-live="polite"></div>
+  <p class="error" id="f-error" role="alert"></p>
+  <button class="btn primary wide" type="submit" id="f-submit">Add penalty</button>
+</form>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<!-- END:BODY -->
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
