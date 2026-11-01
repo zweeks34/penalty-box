@@ -113,10 +113,36 @@ function periodChoices() {
   return periodLengths(state.config).map((_, i) => ({ v: i + 1, label: periodLabel(state.config, i + 1).replace(/^P/, '') }));
 }
 
-function who(p) {
-  if (p.player && p.servedBy) return `#${esc(p.player)} <span class="pen-note">served by #${esc(p.servedBy)}</span>`;
-  if (p.player) return `#${esc(p.player)}`;
-  return `Bench <span class="pen-note">served by #${esc(p.servedBy)}</span>`;
+/** The player's number on a tile in the team's jersey color (CSS colors it per team). */
+function jersey(p) {
+  return p.player
+    ? `<span class="jersey"><span class="vh">#</span>${esc(p.player)}</span>`
+    : '<span class="jersey bench">Bench</span>';
+}
+
+/** A game-clock position split so the period can be set smaller than the time. */
+function clockHtml(cfg, elapsed) {
+  const c = toClock(cfg, elapsed);
+  return c.beyond
+    ? `<span class="per">after ${esc(periodLabel(cfg, c.period))}</span> +${esc(fmtClock(c.over))}`
+    : `<span class="per">${esc(periodLabel(cfg, c.period))}</span> ${esc(fmtClock(c.remaining))}`;
+}
+
+/**
+ * Penalty type and length ("Minor 2:00"), the infraction, then the status line
+ * (a dot marks running, a ring delayed). Status sits beside the clock, not under it.
+ */
+function penWho(p, status) {
+  const what = p.noClock ? kindLabel(p.kind) : `${kindLabel(p.kind)} ${fmtClock(p.duration)}`;
+  return `<div class="pen-who"><div class="what">${esc(what)}</div>` +
+    (p.infraction ? `<div class="why">${esc(p.infraction)}</div>` : '') +
+    (status ? `<div class="st ${status.cls}">${esc(status.text)}</div>` : '') +
+    '</div>';
+}
+
+/** Extra notes under the row, one per line. */
+function penNotes(notes) {
+  return notes.length ? `<ul class="pen-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : '';
 }
 const whoText = (p) => (p.player ? `#${p.player}` : 'Bench') + (p.servedBy ? ` (served by #${p.servedBy})` : '');
 
@@ -254,7 +280,7 @@ function renderStrength(ref) {
   const snap = snapshot(schedule, ref.at);
   // Digits only, colored by team: names don't fit next to the title on a phone.
   $('strength').innerHTML =
-    `<b class="h">${snap.strength.home}</b> v <b class="a">${snap.strength.away}</b>`;
+    `<b class="h">${snap.strength.home}</b><i>v</i><b class="a">${snap.strength.away}</b>`;
   $('strength').setAttribute('aria-label', `${teamName('home')} ${snap.strength.home} skaters, ${teamName('away')} ${snap.strength.away} skaters`);
 }
 
@@ -290,16 +316,19 @@ function renderBoard(ref) {
       : [];
     const later = laterList.length;
 
+    // An empty box takes no body row: the team header says so. The message only
+    // appears when later penalties follow, to explain why the box looks empty.
     const emptyMsg = later
       ? `<p class="empty">No one in the box at ${esc(fmtPosition(state.config, ref.at))}.</p>`
-      : '<p class="empty">No one in the box.</p>';
+      : '';
     const rows = (active.map((p) => penaltyRow(p, ref, snap)).join('') || emptyMsg) +
       laterList.map((p) => laterRow(p)).join('');
     const doneRows = showDone[team] ? done.map((p) => penaltyRow(p, ref, snap, true)).join('') : '';
     const toggle = done.length
-      ? `<button class="done-toggle" type="button" data-done="${team}">${showDone[team] ? 'Hide' : 'Show'} ${done.length} finished</button>`
+      ? `<button class="done-toggle" type="button" data-done="${team}" aria-expanded="${showDone[team]}">${showDone[team] ? 'Hide' : 'Show'} ${done.length} finished</button>`
       : '';
-    const sub = `${active.length} in box${later ? ` · ${later} later` : ''}`;
+    const n = active.length;
+    const sub = n ? `${n} in box${later ? `, ${later} later` : ''}` : later ? `${later} later` : 'No one in box';
     return `<article class="team ${team}">
       <div class="team-head"><div class="team-title">${logoChip(teamLogo(team), 'head-logo')}<h3>${esc(teamName(team))}</h3></div><span class="sub">${sub}</span></div>
       ${rows}${toggle}${doneRows}
@@ -311,33 +340,33 @@ function renderBoard(ref) {
 /** A penalty assessed after the "Scoreboard now" time. */
 function laterRow(p) {
   const cfg = state.config;
-  const what = [kindLabel(p.kind), p.noClock ? null : fmtClock(p.duration), p.infraction].filter(Boolean).map(esc).join(' · ');
+  const notes = p.servedBy ? [`Served by #${p.servedBy}`] : [];
+  notes.push('Update Scoreboard now to see it in the box');
   return `<div class="pen later">
-    <div class="pen-who"><div class="num">${who(p)}</div><div class="what">${what}</div></div>
-    <div class="pen-when"><span class="label">Assessed</span><span class="time">${esc(fmtPosition(cfg, p.assessedAt))}</span></div>
-    <div class="pen-meta"><span class="pill wait">After scoreboard time</span><span class="pen-note">Update Scoreboard now to see it in the box</span></div>
+    ${jersey(p)}${penWho(p, { cls: 'later', text: 'After scoreboard time' })}
+    <div class="pen-when"><span class="label">Assessed</span><span class="time">${clockHtml(cfg, p.assessedAt)}</span></div>
+    ${penNotes(notes)}
   </div>`;
 }
 
 function penaltyRow(p, ref, snap, isDone = false) {
   const cfg = state.config;
   const endClock = toClock(cfg, p.end);
-  const what = [kindLabel(p.kind), p.noClock ? null : fmtClock(p.duration), p.infraction].filter(Boolean).map(esc).join(' · ');
-  const pills = [];
-  const notes = [];
+  const notes = p.servedBy ? [`Served by #${p.servedBy}`] : [];
+  let status = null;
+  let left = '';
 
   if (p.noClock) {
-    pills.push('<span class="pill">Ejected</span>');
+    status = { cls: 'out', text: 'Ejected' };
   } else if (isDone) {
-    pills.push(p.endReason === 'released'
-      ? `<span class="pill">Released by PPG</span>`
-      : `<span class="pill">Expired</span>`);
+    // "Expired" is already the label over the time; only a release needs saying.
+    if (p.endReason === 'released') status = { cls: 'end', text: 'Released by PPG' };
   } else if (p.start > ref.at) {
-    pills.push(`<span class="pill wait">Delayed</span>`);
-    notes.push(`Starts ${fmtPosition(cfg, p.start)}`);
+    // No-break space: "P2 3:30" never splits across lines in the narrow column.
+    status = { cls: 'wait', text: `Delayed, starts ${fmtPosition(cfg, p.start).replace(' ', '\u00a0')}` };
   } else {
-    pills.push(`<span class="pill run">Running</span>`);
-    if (ref.live) pills.push(`<span class="pill left">${fmtClock(p.end - ref.at)} left</span>`);
+    status = { cls: 'run', text: 'Running' };
+    if (ref.live) left = `<span class="left">${esc(fmtClock(p.end - ref.at))} left</span>`;
   }
 
   if (!isDone && !p.noClock) {
@@ -354,12 +383,12 @@ function penaltyRow(p, ref, snap, isDone = false) {
   }
 
   const label = p.noClock ? 'Logged' : isDone ? (p.endReason === 'released' ? 'Released' : 'Expired') : 'Expires';
-  const time = p.noClock ? fmtPosition(cfg, p.assessedAt) : fmtPosition(cfg, p.end);
+  const at = p.noClock ? p.assessedAt : p.end;
 
   return `<div class="pen${isDone ? ' done' : ''}">
-    <div class="pen-who"><div class="num">${who(p)}</div><div class="what">${what}</div></div>
-    <div class="pen-when"><span class="label">${label}</span><span class="time">${esc(time)}</span></div>
-    <div class="pen-meta">${pills.join('')}${notes.map((n) => `<span class="pen-note">${esc(n)}</span>`).join('<span class="pen-note">·</span>')}</div>
+    ${jersey(p)}${penWho(p, status)}
+    <div class="pen-when"><span class="label">${label}</span><span class="time">${clockHtml(cfg, at)}</span>${left}</div>
+    ${penNotes(notes)}
   </div>`;
 }
 

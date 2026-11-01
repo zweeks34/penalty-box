@@ -10,7 +10,7 @@
  * To ship an update: change CACHE_VERSION. Phones pick up the new version
  * the next time the app is opened with a connection.
  */
-const CACHE_VERSION = 'penaltybox-v7';
+const CACHE_VERSION = 'penaltybox-v8';
 const FONT_CACHE = 'penaltybox-fonts';
 
 const APP_SHELL = [
