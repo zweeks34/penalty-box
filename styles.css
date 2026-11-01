@@ -132,7 +132,6 @@ body::before {
 .btn.primary { background: var(--sel); border-color: var(--sel); color: var(--sel-ink); }
 .btn.danger, .btn.confirming { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, var(--line)); }
 .btn.confirming { background: var(--danger); color: var(--on-accent); }
-.btn.wide { width: 100%; min-height: 52px; font-size: 1.1rem; }
 .btn-ghost { background: none; border: 1px solid transparent; color: var(--muted); }
 .btn-ghost:hover { color: var(--fg); }
 .small { min-height: 36px; padding: 0 10px; font-size: 0.8rem; }
@@ -164,7 +163,6 @@ input.clock-input { width: 5em; flex: 0 0 auto; text-align: center; font-size: 1
   min-height: 42px; padding: 0 14px; border-radius: 999px; cursor: pointer;
   background: var(--bg); border: 1px solid var(--line); font: 600 0.95rem/1 var(--f-display); letter-spacing: 0.03em;
 }
-.chips.mono button { font-family: var(--f-clock); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
 .chips button[aria-checked="true"] { background: var(--sel); border-color: var(--sel); color: var(--sel-ink); }
 
 .toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
@@ -255,7 +253,6 @@ input.clock-input { width: 5em; flex: 0 0 auto; text-align: center; font-size: 1
 .row-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .copy-fallback { min-height: 160px; font-family: var(--f-mono); font-size: 0.8rem; }
 
-.setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .field { display: grid; gap: 6px; min-width: 0; }
 .field.inline { display: flex; }
 .period-lens { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -297,20 +294,58 @@ input.clock-input { width: 5em; flex: 0 0 auto; text-align: center; font-size: 1
 
 /* ---------- entry sheet ---------- */
 .sheet-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(4, 8, 14, 0.6); }
+/* The body scrolls; the footer (result + Add button) stays put, so Add is always in reach */
 .sheet {
-  position: fixed; z-index: 21; inset: auto 0 0; max-height: calc(100% - 24px - env(safe-area-inset-top, 0px)); overflow-y: auto;
-  margin: 0 auto; max-width: 640px; display: grid; gap: 14px;
-  padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  position: fixed; z-index: 21; inset: auto 0 0; max-height: calc(100% - 24px - env(safe-area-inset-top, 0px));
+  margin: 0 auto; max-width: 640px; display: flex; flex-direction: column; overflow: hidden;
   background: var(--surface); border: 1px solid var(--line); border-bottom: 0; border-radius: 16px 16px 0 0; box-shadow: var(--shadow);
+}
+.sheet-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  /* max-content rows: a short sheet (keyboard open) must scroll, never squash the
+     team picker or length buttons (they clip overflow, so their minimum height is 0) */
+  display: grid; grid-auto-rows: max-content; gap: 16px; align-content: start;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 18px max(16px, env(safe-area-inset-left, 0px));
 }
 .sheet-head { display: flex; justify-content: space-between; align-items: center; }
 .sheet-head h2 { margin: 0; font: 700 1.4rem/1 var(--f-display); letter-spacing: 0.04em; text-transform: uppercase; }
-.when { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.when .clock-input { font-size: 1.4rem; min-height: 48px; }
-.preview { padding: 12px 14px; border-radius: var(--r); background: var(--bg); border: 1px solid var(--line); min-height: 48px; display: grid; gap: 2px; }
+/* Small labels are sentence case in the sheet */
+.sheet .field > span { font: 600 0.9rem/1.2 var(--f-body); letter-spacing: 0; text-transform: none; color: var(--muted); }
+
+/* Player # and game clock share one row near the top, above the phone keyboard.
+   It wraps only when overtime adds a fourth period button. */
+.who-when { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.who-when > .field:last-child { flex: 1 1 auto; }
+.field.num { flex: 0 0 68px; }
+.field.num input { min-height: 48px; padding-inline: 6px; text-align: center; font: 600 1.35rem/1 var(--f-clock); font-variant-numeric: tabular-nums; }
+.when { display: flex; gap: 8px; align-items: center; }
+.when .seg button { min-height: 46px; }
+.when .clock-input { width: 4.2em; min-height: 48px; font-size: 1.4rem; }
+
+/* Length: one row of equal buttons */
+.len-seg { display: flex; }
+.sheet .field > .len-seg { justify-self: stretch; }
+.len-seg button { flex: 1 1 0; min-width: 0; padding: 0 2px; font-family: var(--f-clock); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+
+.extras { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 12px; align-items: end; }
+.extras .field.num input { min-height: 44px; font-size: 1.2rem; }
+
+/* Footer: the result beside the Add button */
+.sheet-foot {
+  flex: none; display: grid; gap: 8px; background: var(--surface); border-top: 1px solid var(--line);
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.sheet-foot-row { display: flex; align-items: center; gap: 12px; }
+.preview { flex: 1 1 auto; min-width: 0; min-height: 52px; display: grid; gap: 1px; align-content: center; }
 .preview .label { font-size: 0.8rem; line-height: 1.2; color: var(--muted); }
-.preview .time { font-size: 1.75rem; font-weight: 700; line-height: 1.1; }
-.preview .note { color: var(--muted); font-size: 0.9rem; }
+.preview .time { font-size: 1.85rem; font-weight: 700; line-height: 1.05; white-space: nowrap; }
+.preview .time .per { font-size: 0.55em; font-weight: 600; color: var(--muted); }
+.preview .what { font-weight: 600; line-height: 1.3; }
+.preview .note { color: var(--muted); font-size: 0.85rem; line-height: 1.3; }
+/* Add: ice until a team is picked, then that team's jersey color */
+.btn.add { flex: none; min-height: 56px; padding: 0 20px; font-size: 1.1rem; }
+.sheet[data-team="home"] .btn.add { background: var(--home); color: var(--home-ink); border-color: var(--home-edge, transparent); box-shadow: 0 0 0 1px var(--tile-ring); }
+.sheet[data-team="away"] .btn.add { background: var(--away); color: var(--away-ink); border-color: var(--away-edge, transparent); box-shadow: 0 0 0 1px var(--tile-ring); }
 .error { margin: 0; color: var(--danger); font-weight: 600; min-height: 0; }
 .error:empty { display: none; }
 
@@ -322,7 +357,6 @@ input.clock-input { width: 5em; flex: 0 0 auto; text-align: center; font-size: 1
 }
 
 @media (max-width: 380px) {
-  .setup-grid { grid-template-columns: 1fr; }
   .pen-when .time { font-size: 1.75rem; }
 }
 @media (prefers-reduced-motion: no-preference) {

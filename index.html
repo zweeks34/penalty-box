@@ -124,48 +124,54 @@
 
 <!-- Entry sheet (penalty or goal) -->
 <div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
-<form class="sheet" id="sheet" hidden autocomplete="off" novalidate>
-  <div class="sheet-head">
-    <h2 id="sheet-title">Penalty</h2>
-    <button type="button" class="btn-ghost small" id="sheet-close">Cancel</button>
-  </div>
+<!-- The body scrolls; the footer (result + Add button) never does, so Add is always in reach. -->
+<form class="sheet" id="sheet" hidden autocomplete="off" novalidate aria-labelledby="sheet-title">
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <h2 id="sheet-title">Penalty</h2>
+      <button type="button" class="btn-ghost small" id="sheet-close">Cancel</button>
+    </div>
 
-  <div class="field">
-    <span>Team</span>
     <div class="seg team-seg" id="f-team" role="radiogroup" aria-label="Team"></div>
+
+    <!-- Everything you type sits in one row near the top, so it stays above the phone keyboard -->
+    <div class="who-when">
+      <label class="field num" data-for="penalty"><span>Player #</span><input id="f-player" type="text" inputmode="numeric" maxlength="3"></label>
+      <label class="field num" data-for="goal"><span>Scorer #</span><input id="f-scorer" type="text" inputmode="numeric" maxlength="3"></label>
+      <div class="field">
+        <span>Game clock</span>
+        <div class="when">
+          <div class="seg" id="f-period" role="radiogroup" aria-label="Period"></div>
+          <input id="f-clock" class="clock-input" type="text" inputmode="numeric" placeholder="mm:ss" aria-label="Game clock">
+        </div>
+      </div>
+    </div>
+
+    <div class="field" data-for="penalty">
+      <span>Penalty</span>
+      <div class="chips" id="f-kind" role="radiogroup" aria-label="Penalty type"></div>
+    </div>
+    <div class="field" data-for="penalty">
+      <span>Length</span>
+      <div class="seg len-seg mono" id="f-duration" role="radiogroup" aria-label="Penalty length"></div>
+    </div>
+
+    <div class="extras" data-for="penalty">
+      <label class="field num"><span>Served by #</span><input id="f-served" type="text" inputmode="numeric" maxlength="3"></label>
+      <label class="field"><span>Infraction</span><select id="f-infraction"></select></label>
+    </div>
+
+    <label class="toggle" data-for="penalty"><input type="checkbox" id="f-coinc"><span>Coincidental (no change to team strength)</span></label>
   </div>
 
-  <div class="setup-grid" data-for="penalty">
-    <label class="field"><span>Player #</span><input id="f-player" type="text" inputmode="numeric" maxlength="3"></label>
-    <label class="field"><span>Served by # <em>optional</em></span><input id="f-served" type="text" inputmode="numeric" maxlength="3"></label>
-  </div>
-  <label class="field" data-for="goal"><span>Scorer # <em>optional</em></span><input id="f-scorer" type="text" inputmode="numeric" maxlength="3"></label>
-
-  <div class="field" data-for="penalty">
-    <span>Penalty</span>
-    <div class="chips" id="f-kind" role="radiogroup" aria-label="Penalty type"></div>
-  </div>
-  <div class="field" data-for="penalty">
-    <span>Time</span>
-    <div class="chips mono" id="f-duration" role="radiogroup" aria-label="Penalty length"></div>
-  </div>
-  <label class="field" data-for="penalty"><span>Infraction <em>optional</em></span>
-    <select id="f-infraction"></select>
-  </label>
-
-  <div class="field">
-    <span>When (game clock)</span>
-    <div class="when">
-      <div class="seg" id="f-period" role="radiogroup" aria-label="Period"></div>
-      <input id="f-clock" class="clock-input" type="text" inputmode="numeric" placeholder="mm:ss" aria-label="Game clock">
+  <div class="sheet-foot">
+    <p class="error" id="f-error" role="alert"></p>
+    <div class="sheet-foot-row">
+      <div class="preview" id="f-preview" aria-live="polite"></div>
+      <!-- Takes the selected team's jersey color (styles.css, .sheet[data-team]) -->
+      <button class="btn primary add" type="submit" id="f-submit">Add penalty</button>
     </div>
   </div>
-
-  <label class="toggle" data-for="penalty"><input type="checkbox" id="f-coinc"><span>Coincidental (no change to team strength)</span></label>
-
-  <div class="preview" id="f-preview" aria-live="polite"></div>
-  <p class="error" id="f-error" role="alert"></p>
-  <button class="btn primary wide" type="submit" id="f-submit">Add penalty</button>
 </form>
 
 <div class="toast" id="toast" role="status" hidden></div>

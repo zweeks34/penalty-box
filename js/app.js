@@ -625,6 +625,8 @@ function closeSheet() {
 }
 
 function renderSheetChoices() {
+  // The Add button takes the selected team's jersey color (CSS reads data-team).
+  $('sheet').dataset.team = form.team ?? '';
   // Team picker shows each team's logo and, when selected, its color.
   const teamSeg = $('f-team');
   teamSeg.innerHTML = ['home', 'away'].map((side) =>
@@ -673,8 +675,11 @@ function readSheet() {
 function updatePreview() {
   const box = $('f-preview');
   const { entry, error } = readSheet();
+  const note = (t) => `<span class="note">${esc(t)}</span>`;
   if (!entry) {
-    box.innerHTML = `<span class="note">${esc(error === 'Pick a team.' ? 'Pick a team to see the result.' : 'Enter the game clock to see the result.')}</span>`;
+    // Sits beside the Add button, so it stays short: what's missing, nothing else.
+    box.innerHTML = `<span class="label">${form.mode === 'goal' ? 'Goal' : 'Expires'}</span>` +
+      note(error === 'Pick a team.' ? 'Pick a team' : 'Enter the game clock');
     return;
   }
   const cfg = state.config;
@@ -684,26 +689,26 @@ function updatePreview() {
     const rel = g.released && s.penalties.find((p) => p.id === g.released);
     const half = s.penalties.find((p) => p.halfReleasedBy === '__draft');
     box.innerHTML = rel
-      ? `<span class="label">Power-play goal</span><span class="time">Releases ${esc(whoText(rel))}</span>`
+      ? `<span class="label">Power-play goal</span><span class="what">Releases ${esc(whoText(rel))}</span>`
       : half
-        ? `<span class="label">Power-play goal</span><span class="time">${esc(whoText(half))}: 2nd half starts</span><span class="note">Double minor now ends ${esc(fmtPosition(cfg, half.end))}</span>`
-        : `<span class="label">Goal</span><span class="note">No penalty released.</span>`;
+        ? `<span class="label">Power-play goal</span><span class="what">${esc(whoText(half))}: 2nd half starts</span>${note(`Double minor now ends ${fmtPosition(cfg, half.end)}`)}`
+        : `<span class="label">Goal</span><span class="what">No penalty released</span>`;
     return;
   }
   const s = computeSchedule(cfg, [...state.penalties, entry], state.goals);
   const p = s.penalties.find((x) => x.id === '__draft');
   if (p.noClock) {
-    box.innerHTML = `<span class="label">Logged only</span><span class="note">No penalty clock. Record any major or minor that goes with it as its own entry.</span>`;
+    box.innerHTML = `<span class="label">Logged only</span>${note('No penalty clock. Log any minor or major with it as its own entry.')}`;
     return;
   }
   const end = toClock(cfg, p.end);
   const extra = [];
-  if (p.delayed) extra.push(`Delayed: starts ${fmtPosition(cfg, p.start)}`);
+  if (p.delayed) extra.push(`Delayed, starts ${fmtPosition(cfg, p.start).replace(' ', '\u00a0')}`);
   if (end.beyond) extra.push(cfg.otLength ? 'Runs past end of overtime' : 'Carries past regulation');
   else if (end.period > p.period) extra.push(`Carries into ${periodLabel(cfg, end.period)}`);
   if (p.coincidental) extra.push('No change to team strength');
-  box.innerHTML = `<span class="label">Expires</span><span class="time">${esc(fmtPosition(cfg, p.end))}</span>` +
-    (extra.length ? `<span class="note">${esc(extra.join(' · '))}</span>` : '');
+  box.innerHTML = `<span class="label">Expires</span><span class="time">${clockHtml(cfg, p.end)}</span>` +
+    extra.map(note).join('');
 }
 
 function submitSheet(e) {
@@ -731,7 +736,7 @@ function submitSheet(e) {
   closeSheet();
   render();
   const what = form.mode === 'goal' ? 'Goal added' : 'Penalty added';
-  toast(moved ? `${what} · Scoreboard now set to ${fmtPosition(state.config, toElapsed(state.config, entry.period, entry.clock))}` : what);
+  toast(moved ? `${what}. Scoreboard now set to ${fmtPosition(state.config, toElapsed(state.config, entry.period, entry.clock))}.` : what);
 }
 
 /* ------------------------------------------------------------------ */
