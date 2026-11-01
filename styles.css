@@ -215,6 +215,8 @@ input.clock-input { width: 5em; flex: 0 0 auto; text-align: center; font-size: 1
 .pen-when .time { font-size: 2rem; font-weight: 700; line-height: 1.05; white-space: nowrap; }
 .pen-when .time .per { font-size: 0.55em; font-weight: 600; color: var(--muted); }
 .pen-when .left { margin-top: 3px; font: 600 1.05rem/1.2 var(--f-clock); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Reference only: when the penalty was called. Quiet, last in the column. */
+.pen-when .called { margin-top: 4px; font: 500 0.85rem/1.2 var(--f-clock); font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
 .pen-notes {
   grid-column: 2 / -1; display: grid; gap: 3px; margin: 0; padding: 0; list-style: none;
   color: var(--muted); font-size: 0.875rem; line-height: 1.3;

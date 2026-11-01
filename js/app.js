@@ -344,7 +344,7 @@ function laterRow(p) {
   notes.push('Update Scoreboard now to see it in the box');
   return `<div class="pen later">
     ${jersey(p)}${penWho(p, { cls: 'later', text: 'After scoreboard time' })}
-    <div class="pen-when"><span class="label">Assessed</span><span class="time">${clockHtml(cfg, p.assessedAt)}</span></div>
+    <div class="pen-when"><span class="label">Called</span><span class="time">${clockHtml(cfg, p.assessedAt)}</span></div>
     ${penNotes(notes)}
   </div>`;
 }
@@ -384,10 +384,12 @@ function penaltyRow(p, ref, snap, isDone = false) {
 
   const label = p.noClock ? 'Logged' : isDone ? (p.endReason === 'released' ? 'Released' : 'Expired') : 'Expires';
   const at = p.noClock ? p.assessedAt : p.end;
+  // While the penalty is being served (running or delayed): when it was called, for reference.
+  const called = !isDone && !p.noClock ? `<span class="called">Called ${esc(fmtPosition(cfg, p.assessedAt))}</span>` : '';
 
   return `<div class="pen${isDone ? ' done' : ''}">
     ${jersey(p)}${penWho(p, status)}
-    <div class="pen-when"><span class="label">${label}</span><span class="time">${clockHtml(cfg, at)}</span>${left}</div>
+    <div class="pen-when"><span class="label">${label}</span><span class="time">${clockHtml(cfg, at)}</span>${left}${called}</div>
     ${penNotes(notes)}
   </div>`;
 }
