@@ -38,7 +38,7 @@
     <div class="check-row">
       <h2 id="check-h" class="eyebrow">Scoreboard now</h2>
       <div class="seg" id="check-period" role="radiogroup" aria-label="Current period"></div>
-      <input id="check-clock" class="clock-input" type="text" inputmode="numeric" autocomplete="off" placeholder="mm:ss" aria-label="Current game clock">
+      <input id="check-clock" class="clock-input" type="text" inputmode="none" autocomplete="off" placeholder="mm:ss" aria-label="Current game clock">
       <button class="btn-ghost small" id="check-clear" type="button">Clear</button>
     </div>
     <p class="hint" id="check-hint">Enter the game clock to see what each penalty clock should read.</p>
@@ -136,14 +136,15 @@
 
     <!-- Everything you type sits in one row near the top, so it stays above the phone keyboard -->
     <div class="who-when">
-      <label class="field num" data-for="penalty"><span>Player #</span><input id="f-player" type="text" inputmode="numeric" maxlength="3"></label>
-      <label class="field num" data-for="goal"><span>Scorer #</span><input id="f-scorer" type="text" inputmode="numeric" maxlength="3"></label>
+      <label class="field num" data-for="penalty"><span>Player #</span><input id="f-player" type="text" inputmode="none" maxlength="3"></label>
+      <label class="field num" data-for="goal"><span>Scorer #</span><input id="f-scorer" type="text" inputmode="none" maxlength="3"></label>
       <div class="field">
         <span>Game clock</span>
         <div class="when">
           <div class="seg" id="f-period" role="radiogroup" aria-label="Period"></div>
-          <input id="f-clock" class="clock-input" type="text" inputmode="numeric" placeholder="mm:ss" aria-label="Game clock">
+          <input id="f-clock" class="clock-input" type="text" inputmode="none" placeholder="mm:ss" aria-label="Game clock">
         </div>
+        <button type="button" class="btn-ghost small use-clock" id="f-use-clock" hidden></button>
       </div>
     </div>
 
@@ -157,7 +158,7 @@
     </div>
 
     <div class="extras" data-for="penalty">
-      <label class="field num"><span>Served by #</span><input id="f-served" type="text" inputmode="numeric" maxlength="3"></label>
+      <label class="field num"><span>Served by #</span><input id="f-served" type="text" inputmode="none" maxlength="3"></label>
       <label class="field"><span>Infraction</span><select id="f-infraction"></select></label>
     </div>
 
@@ -173,6 +174,24 @@
     </div>
   </div>
 </form>
+
+<!-- Built-in number pad: number fields use inputmode="none", so the system keyboard stays closed (app.js) -->
+<div class="keypad" id="keypad" role="group" aria-label="Number pad" hidden>
+  <div class="keypad-grid">
+    <button type="button" tabindex="-1" data-k="1">1</button>
+    <button type="button" tabindex="-1" data-k="2">2</button>
+    <button type="button" tabindex="-1" data-k="3">3</button>
+    <button type="button" tabindex="-1" data-k="4">4</button>
+    <button type="button" tabindex="-1" data-k="5">5</button>
+    <button type="button" tabindex="-1" data-k="6">6</button>
+    <button type="button" tabindex="-1" data-k="7">7</button>
+    <button type="button" tabindex="-1" data-k="8">8</button>
+    <button type="button" tabindex="-1" data-k="9">9</button>
+    <button type="button" tabindex="-1" data-k="back" class="alt" aria-label="Delete"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H9l-6 7 6 7h12z"/><path d="m12 9 6 6m0-6-6 6"/></svg></button>
+    <button type="button" tabindex="-1" data-k="0">0</button>
+    <button type="button" tabindex="-1" data-k="next" class="alt" id="keypad-next">Done</button>
+  </div>
+</div>
 
 <div class="toast" id="toast" role="status" hidden></div>
 <!-- END:BODY -->

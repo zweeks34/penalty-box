@@ -207,6 +207,7 @@ function formatClockDigits(raw) {
 }
 
 function bindClockField(input) {
+  input.dataset.clock = '';   // the number pad deletes clock digits differently
   // Tapping into a filled field selects it, so typing replaces the old time.
   // Done on the click that follows focus (not a timer) so it can never fire
   // mid-typing; a second tap inside the field still places the caret normally.
@@ -226,6 +227,78 @@ function bindClockField(input) {
   input.addEventListener('blur', () => {
     const s = parseClock(input.value);
     if (s != null) input.value = fmtClock(s);
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Number pad                                                          */
+/* ------------------------------------------------------------------ */
+/*
+ * Number fields use inputmode="none", so the system keyboard stays closed and the
+ * page doesn't shift under it. The fields stay real, focused inputs: the pad edits
+ * them and fires the same events typing does, and physical keyboards still work.
+ */
+const PAD_FIELD = 'input[inputmode="none"]';
+let padDirty = false;   // the pad changed the field, so leaving it must fire `change`
+
+function setPadHeight(px) { document.documentElement.style.setProperty('--pad-h', `${px}px`); }
+function showPad() { $('keypad').hidden = false; setPadHeight($('keypad').offsetHeight); }
+function hidePad() { $('keypad').hidden = true; setPadHeight(0); }
+
+/** The field Next moves to in the entry sheet, in entry order. Null means Done. */
+function nextPadField(input) {
+  const order = form.mode === 'goal' ? ['f-clock', 'f-scorer'] : ['f-player', 'f-clock'];
+  const i = order.indexOf(input.id);
+  return i >= 0 && i < order.length - 1 ? $(order[i + 1]) : null;
+}
+
+function pressPad(key) {
+  const input = document.activeElement;
+  if (!input?.matches(PAD_FIELD)) return;
+  if (key === 'next') {
+    const next = nextPadField(input);
+    if (next) { next.focus(); next.select(); } else input.blur();
+    return;
+  }
+  const { selectionStart: from, selectionEnd: to, value } = input;
+  if (key === 'back') {
+    if (from !== to) input.setRangeText('', from, to, 'end');
+    // By digit, not character: "0:00" must be able to reach empty.
+    else if ('clock' in input.dataset) input.value = value.replace(/\D/g, '').replace(/^0+/, '').slice(0, -1);
+    else if (from > 0) input.setRangeText('', from - 1, from, 'end');
+  } else {
+    if (from === to && input.maxLength > 0 && value.length >= input.maxLength) return;
+    input.setRangeText(key, from, to, 'end');
+  }
+  padDirty = true;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function wirePad() {
+  $('keypad').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-k]');
+    if (b) pressPad(b.dataset.k);
+  });
+  // While the pad is open, its keys and nearby buttons (period, length, Use) must not
+  // take focus from the field, or each tap would close the pad and shift the sheet.
+  document.addEventListener('mousedown', (e) => {
+    if (!$('keypad').hidden && e.target.closest('#keypad, #sheet button, .check button')) e.preventDefault();
+  });
+  document.addEventListener('focusin', (e) => {
+    if (!e.target.matches(PAD_FIELD)) return;
+    $('keypad-next').textContent = nextPadField(e.target) ? 'Next' : 'Done';
+    showPad();
+    e.target.scrollIntoView({ block: 'nearest' });   // scroll-margin (styles.css) clears the pad
+  });
+  document.addEventListener('focusout', (e) => {
+    if (!e.target.matches(PAD_FIELD)) return;
+    if (padDirty) {
+      padDirty = false;
+      e.target.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    // A change can re-render the fields, removing the one focus was moving to.
+    const to = e.relatedTarget;
+    if (!to?.isConnected || !to.matches(PAD_FIELD)) hidePad();
   });
 }
 
@@ -577,7 +650,7 @@ function renderSetup() {
       `<div class="seg" id="cfg-count" role="radiogroup" aria-label="Number of periods">${[2, 3].map((n) =>
         `<button type="button" role="radio" data-count="${n}" aria-checked="${cfg.periods.length === n}">${n} periods</button>`).join('')}</div>` +
       cfg.periods.map((len, i) =>
-        `<label>P${i + 1}<input type="text" inputmode="numeric" id="cfg-p${i + 1}" data-pi="${i}" value="${fmtClock(len)}" aria-label="Period ${i + 1} length"></label>`).join('');
+        `<label>P${i + 1}<input type="text" inputmode="none" id="cfg-p${i + 1}" data-pi="${i}" value="${fmtClock(len)}" aria-label="Period ${i + 1} length"></label>`).join('');
     wrap.querySelectorAll('input[data-pi]').forEach(bindClockField);
   }
   renderChoice($('cfg-ot'), OT_CHOICES.map((v) => ({ v, label: v ? fmtClock(v) : 'Off' })), cfg.otLength, (v) => {
@@ -614,14 +687,37 @@ function openSheet(mode, team) {
   $('f-error').textContent = '';
   $('f-infraction').innerHTML = `<option value="">—</option>${INFRACTIONS.map((i) => `<option>${esc(i)}</option>`).join('')}`;
   renderSheetChoices();
+  renderUseClock();
   $('sheet-backdrop').hidden = false;
   f.hidden = false;
-  // Put the cursor where the first keystroke belongs.
-  setTimeout(() => (mode === 'goal' ? $('f-clock') : $('f-player')).focus(), 50);
+  // Put the cursor where the first keystroke belongs. This also opens the number pad.
+  (mode === 'goal' ? $('f-clock') : $('f-player')).focus();
   updatePreview();
 }
 
+/**
+ * One-tap copy of "Scoreboard now" into the entry. A button, not a pre-fill: a stale
+ * time must never be accepted without someone choosing it.
+ */
+function renderUseClock() {
+  const { period, clock } = state.check;
+  const btn = $('f-use-clock');
+  btn.hidden = clock == null || !period;
+  if (!btn.hidden) btn.textContent = `Use ${periodLabel(state.config, period)} ${fmtClock(clock)}`;
+}
+
+function useScoreboardClock() {
+  const input = $('f-clock');
+  form.period = state.check.period;
+  input.value = fmtClock(state.check.clock);
+  renderSheetChoices();
+  $('f-error').textContent = '';
+  updatePreview();
+  if (document.activeElement === input) input.select();   // a digit typed next replaces it
+}
+
 function closeSheet() {
+  if ($('sheet').contains(document.activeElement)) document.activeElement.blur();
   $('sheet').hidden = true;
   $('sheet-backdrop').hidden = true;
 }
@@ -889,6 +985,8 @@ function wire() {
   $('sheet').addEventListener('submit', submitSheet);
   $('sheet').addEventListener('input', () => { $('f-error').textContent = ''; updatePreview(); });
   bindClockField($('f-clock'));
+  $('f-use-clock').onclick = useScoreboardClock;
+  wirePad();
 
   // Clock check
   const cc = $('check-clock');

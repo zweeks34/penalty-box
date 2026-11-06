@@ -38,6 +38,7 @@
 
   --r: 10px;
   --bar-h: 76px;
+  --pad-h: 0px;  /* height of the open number pad; set by app.js */
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
@@ -111,7 +112,7 @@ body::before {
 .strength b.h { background: var(--home); color: var(--home-ink); box-shadow: inset 0 0 0 1px var(--home-edge, transparent), 0 0 0 1px var(--tile-ring); }
 .strength b.a { background: var(--away); color: var(--away-ink); box-shadow: inset 0 0 0 1px var(--away-edge, transparent), 0 0 0 1px var(--tile-ring); }
 
-.wrap { display: grid; gap: 18px; padding-block: 16px calc(var(--bar-h) + 28px + env(safe-area-inset-bottom, 0px)); }
+.wrap { display: grid; gap: 18px; padding-block: 16px calc(var(--bar-h) + 28px + env(safe-area-inset-bottom, 0px) + var(--pad-h)); }
 
 /* ---------- shared bits ---------- */
 .field > span, .panel-head h2 {
@@ -298,7 +299,7 @@ input.clock-input { width: 5em; flex: 0 0 auto; text-align: center; font-size: 1
 .sheet-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(4, 8, 14, 0.6); }
 /* The body scrolls; the footer (result + Add button) stays put, so Add is always in reach */
 .sheet {
-  position: fixed; z-index: 21; inset: auto 0 0; max-height: calc(100% - 24px - env(safe-area-inset-top, 0px));
+  position: fixed; z-index: 21; inset: auto 0 var(--pad-h); max-height: calc(100% - 24px - env(safe-area-inset-top, 0px) - var(--pad-h));
   margin: 0 auto; max-width: 640px; display: flex; flex-direction: column; overflow: hidden;
   background: var(--surface); border: 1px solid var(--line); border-bottom: 0; border-radius: 16px 16px 0 0; box-shadow: var(--shadow);
 }
@@ -316,13 +317,16 @@ input.clock-input { width: 5em; flex: 0 0 auto; text-align: center; font-size: 1
 
 /* Player # and game clock share one row near the top, above the phone keyboard.
    It wraps only when overtime adds a fourth period button. */
-.who-when { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.who-when { display: flex; flex-wrap: wrap; gap: 12px; align-items: start; }
 .who-when > .field:last-child { flex: 1 1 auto; }
 .field.num { flex: 0 0 68px; }
 .field.num input { min-height: 48px; padding-inline: 6px; text-align: center; font: 600 1.35rem/1 var(--f-clock); font-variant-numeric: tabular-nums; }
 .when { display: flex; gap: 8px; align-items: center; }
 .when .seg button { min-height: 46px; }
 .when .clock-input { width: 4.2em; min-height: 48px; font-size: 1.4rem; }
+
+/* Copies "Scoreboard now" into the entry */
+.btn-ghost.use-clock { justify-self: start; min-height: 44px; padding: 0 12px; border-color: var(--line); color: var(--fg); font: 600 1rem/1 var(--f-clock); font-variant-numeric: tabular-nums; }
 
 /* Length: one row of equal buttons */
 .len-seg { display: flex; }
@@ -351,9 +355,31 @@ input.clock-input { width: 5em; flex: 0 0 auto; text-align: center; font-size: 1
 .error { margin: 0; color: var(--danger); font-weight: 600; min-height: 0; }
 .error:empty { display: none; }
 
+/* ---------- number pad ---------- */
+/* Sits above the sheet and action bar. --pad-h lifts the sheet, so Add stays above the pad */
+.keypad {
+  position: fixed; z-index: 25; inset: auto 0 0; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  background: var(--surface); border-top: 1px solid var(--line); box-shadow: var(--shadow);
+  padding: 8px max(12px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+}
+.keypad-grid { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 52px; gap: 6px; }
+.keypad button {
+  min-width: 0; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r);
+  font: 600 1.6rem/1 var(--f-clock); font-variant-numeric: tabular-nums;
+}
+.keypad button:active { background: var(--sel); color: var(--sel-ink); }
+.keypad button.alt { background: var(--bg); }
+.keypad #keypad-next { background: var(--sel); border-color: var(--sel); color: var(--sel-ink); font-size: 1.25rem; letter-spacing: 0.04em; }
+@media (max-height: 520px) { .keypad-grid { grid-auto-rows: 40px; } }
+@media (min-height: 900px) { .keypad-grid { grid-auto-rows: 60px; } }
+/* Fields scrolled into view stop clear of the top bar and the pad */
+input[inputmode="none"] { scroll-margin-block: 72px calc(var(--pad-h) + 16px); }
+.sheet input[inputmode="none"] { scroll-margin-block: 12px; }
+
 .toast {
   position: fixed; z-index: 30; left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--bar-h) + 18px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--bar-h) + 18px + env(safe-area-inset-bottom, 0px) + var(--pad-h));
   max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 999px;
   background: var(--fg); color: var(--bg); font-weight: 600; box-shadow: var(--shadow);
 }
