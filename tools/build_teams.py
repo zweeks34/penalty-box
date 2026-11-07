@@ -12,7 +12,7 @@ Usage: python3 -I build_teams.py <logo_dir> <out_teams.json> <out_contact_sheet.
 """
 import base64, colorsys, io, json, re, sys
 from pathlib import Path
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 SIZE = 128
 MARGIN = 0.04
@@ -26,6 +26,7 @@ NAME_FIXES = {
     'Carolina Jr Canes': 'Carolina Jr. Canes',
     'The St James': 'The St. James',
     'Loudon Knights': 'Loudoun Knights',     # spelled "LOUDOUN" on the logo itself
+    'NCGolden Bears': 'NC Golden Bears',
     'Tomorrows Ice': "Tomorrow's Ice",
 }
 # Colors chosen by eye where the automatic pick latched onto a minor element.
@@ -40,6 +41,9 @@ COLOR_OVERRIDES = {
     'Richmond Hockey Club': PRESETS['Teal'],   # teal wordmark, not the navy outline
     'Tri-City Eagles': PRESETS['Royal'],
 }
+
+# Small JPGs on a colored (not white) box: cut the box out and enlarge to fill the tile.
+KNOCKOUT_BACKGROUND = {'Raleigh Raptors'}
 
 def rgb(h): return tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
 def to_hex(c): return '#%02x%02x%02x' % tuple(int(round(v)) for v in c)
@@ -65,6 +69,20 @@ def trim(img):
     diff = ImageChops.difference(img.convert('RGB'), Image.new('RGB', img.size, bg)).convert('L')
     box = diff.point(lambda d: 255 if d > 24 else 0).getbbox()
     return (img.crop(box) if box else img), bg
+
+def knockout(img, bg, scale=4):
+    """Make the background connected to the image edge transparent, at `scale` x size."""
+    big = img.convert('RGB').resize((img.width * scale, img.height * scale), Image.LANCZOS)
+    padded = Image.new('RGB', (big.width + 2, big.height + 2), bg)   # border reaches every edge pixel
+    padded.paste(big, (1, 1))
+    key = (255, 0, 255)
+    ImageDraw.floodfill(padded, (0, 0), key, thresh=14)
+    diff = ImageChops.difference(padded, Image.new('RGB', padded.size, key)).convert('L')
+    mask = diff.point(lambda d: 255 if d else 0).crop((1, 1, big.width + 1, big.height + 1))
+    mask = mask.filter(ImageFilter.GaussianBlur(1.2))
+    out = big.convert('RGBA')
+    out.putalpha(mask)
+    return out.crop(mask.point(lambda a: 255 if a > 16 else 0).getbbox())
 
 def fit(img):
     inner = int(SIZE * (1 - 2 * MARGIN))
@@ -108,16 +126,19 @@ def main(src_dir, out_json, sheet_path):
     teams, tiles = [], []
     for f in sorted(Path(src_dir).iterdir(), key=lambda p: p.name.lower()):
         if f.suffix.lower() not in ('.png', '.jpg', '.jpeg', '.webp', '.avif', '.gif'): continue
+        if 'contact-sheet' in f.name: continue          # this script's own review output
         try:
             img = Image.open(f).convert('RGBA')
         except Exception as e:
             print(f'SKIP {f.name}: {e}'); continue
+        name = display_name(f.stem)
         cropped, bg = trim(img)
-        logo = fit(cropped)
         color, how = suggest_color(cropped, bg)
+        if name in KNOCKOUT_BACKGROUND:
+            cropped = knockout(cropped, bg)
+        logo = fit(cropped)
         buf = io.BytesIO(); logo.save(buf, 'WEBP', quality=85, method=6)
         data = 'data:image/webp;base64,' + base64.b64encode(buf.getvalue()).decode()
-        name = display_name(f.stem)
         assert len(name) <= 24, name
         if name in COLOR_OVERRIDES:
             color, how = COLOR_OVERRIDES[name], 'override'
