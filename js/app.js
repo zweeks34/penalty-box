@@ -247,7 +247,7 @@ function hidePad() { $('keypad').hidden = true; setPadHeight(0); }
 
 /** The field Next moves to in the entry sheet, in entry order. Null means Done. */
 function nextPadField(input) {
-  const order = form.mode === 'goal' ? ['f-clock', 'f-scorer'] : ['f-player', 'f-clock'];
+  const order = ['f-clock', form.mode === 'goal' ? 'f-scorer' : 'f-player'];
   const i = order.indexOf(input.id);
   return i >= 0 && i < order.length - 1 ? $(order[i + 1]) : null;
 }
@@ -415,12 +415,15 @@ function laterRow(p) {
   const cfg = state.config;
   const notes = p.servedBy ? [`Served by #${p.servedBy}`] : [];
   notes.push('Update Scoreboard now to see it in the box');
-  return `<div class="pen later">
+  return `<div class="pen later" ${editAttrs(p)}>
     ${jersey(p)}${penWho(p, { cls: 'later', text: 'After scoreboard time' })}
     <div class="pen-when"><span class="label">Called</span><span class="time">${clockHtml(cfg, p.assessedAt)}</span></div>
     ${penNotes(notes)}
   </div>`;
 }
+
+/** Board rows open the penalty in the entry sheet for editing. */
+const editAttrs = (p) => `data-edit="${esc(p.id)}" role="button" tabindex="0" aria-label="Edit penalty, ${esc(whoText(p))}"`;
 
 function penaltyRow(p, ref, snap, isDone = false) {
   const cfg = state.config;
@@ -460,7 +463,7 @@ function penaltyRow(p, ref, snap, isDone = false) {
   // While the penalty is being served (running or delayed): when it was called, for reference.
   const called = !isDone && !p.noClock ? `<span class="called">Called ${esc(fmtPosition(cfg, p.assessedAt))}</span>` : '';
 
-  return `<div class="pen${isDone ? ' done' : ''}">
+  return `<div class="pen${isDone ? ' done' : ''}" ${editAttrs(p)}>
     ${jersey(p)}${penWho(p, status)}
     <div class="pen-when"><span class="label">${label}</span><span class="time">${clockHtml(cfg, at)}</span>${left}${called}</div>
     ${penNotes(notes)}
@@ -496,7 +499,7 @@ function renderLog() {
     ? entries.map((e) => `<li>
         <span class="t">${esc(e.time)}</span>
         <span class="d"><b class="${e.team === 'home' ? 'h' : 'a'}">${esc(teamName(e.team))}</b> ${esc(e.text)}</span>
-        <button class="x" type="button" data-del="${e.id}" aria-label="Delete entry">Delete</button>
+        <span class="acts">${e.kind === 'penalty' ? `<button class="x" type="button" data-edit="${e.id}" aria-label="Edit penalty">Edit</button>` : ''}<button class="x" type="button" data-del="${e.id}" aria-label="Delete entry">Delete</button></span>
       </li>`).join('')
     : '<li class="empty">Nothing logged yet. Use the buttons below to add a penalty or goal.</li>';
 }
@@ -670,29 +673,56 @@ const usesPeriod = (n) => [...state.penalties, ...state.goals].some((e) => e.per
 /* ------------------------------------------------------------------ */
 /* Entry sheet                                                         */
 /* ------------------------------------------------------------------ */
-const form = { mode: 'penalty', team: null, kind: 'minor', duration: 120, period: 1 };
+// editId: the id of the penalty being edited, or null when adding a new entry.
+const form = { mode: 'penalty', team: null, kind: 'minor', duration: 120, period: 1, editId: null };
 
 function openSheet(mode, team) {
   Object.assign(form, {
     mode, team: team ?? null, kind: 'minor', duration: defaultDuration('minor'),
-    period: state.check.period ?? state.lastPeriod ?? 1,
+    period: state.check.period ?? state.lastPeriod ?? 1, editId: null,
   });
   if (form.period > periodChoices().length) form.period = 1;
+  showSheet();
+  // Clock first: put the cursor there. This also opens the number pad.
+  $('f-clock').focus();
+  updatePreview();
+}
+
+/** Open a logged penalty in the sheet, filled in, to change what the referee changed. */
+function openEditSheet(id) {
+  const p = state.penalties.find((x) => x.id === id);
+  if (!p) return;
+  Object.assign(form, {
+    mode: 'penalty', team: p.team, kind: p.kind, period: p.period, editId: p.id,
+    duration: p.kind === 'ejection' ? defaultDuration('minor') : p.duration,
+  });
+  showSheet();
+  $('f-clock').value = fmtClock(p.clock);
+  $('f-player').value = p.player ?? '';
+  $('f-served').value = p.servedBy ?? '';
+  const inf = $('f-infraction');
+  // An infraction no longer in the list must survive the edit.
+  if (p.infraction && ![...inf.options].some((o) => o.value === p.infraction)) inf.add(new Option(p.infraction));
+  inf.value = p.infraction ?? '';
+  $('f-coinc').checked = !!p.coincidental;
+  // No auto-focus: the pad would cover the type and length, the usual things to change.
+  updatePreview();
+}
+
+function showSheet() {
+  const { mode, editId } = form;
   const f = $('sheet');
   f.reset();
   $('f-clock').value = '';
   f.querySelectorAll('[data-for]').forEach((el) => { el.hidden = el.dataset.for !== mode; });
-  $('sheet-title').textContent = mode === 'goal' ? 'Goal' : 'Penalty';
-  $('f-submit').textContent = mode === 'goal' ? 'Add goal' : 'Add penalty';
+  $('sheet-title').textContent = editId ? 'Edit penalty' : mode === 'goal' ? 'Goal' : 'Penalty';
+  $('f-submit').textContent = editId ? 'Save changes' : mode === 'goal' ? 'Add goal' : 'Add penalty';
   $('f-error').textContent = '';
   $('f-infraction').innerHTML = `<option value="">—</option>${INFRACTIONS.map((i) => `<option>${esc(i)}</option>`).join('')}`;
   renderSheetChoices();
   renderUseClock();
   $('sheet-backdrop').hidden = false;
   f.hidden = false;
-  // Put the cursor where the first keystroke belongs. This also opens the number pad.
-  (mode === 'goal' ? $('f-clock') : $('f-player')).focus();
-  updatePreview();
 }
 
 /**
@@ -761,12 +791,19 @@ function readSheet() {
   if (!player && !servedBy) return { error: 'Enter the player number, or who serves a bench penalty.' };
   return {
     entry: {
-      id: '__draft', team: form.team, player, servedBy, kind: form.kind,
+      id: form.editId ?? '__draft', team: form.team, player, servedBy, kind: form.kind,
       duration: form.kind === 'ejection' ? 0 : form.duration,
       infraction: $('f-infraction').value, period: form.period, clock,
       coincidental: $('f-coinc').checked,
     },
   };
+}
+
+/** The penalties with the sheet's entry in place: replacing the one being edited, or added. */
+function penaltiesWith(entry) {
+  return form.editId
+    ? state.penalties.map((p) => (p.id === form.editId ? entry : p))
+    : [...state.penalties, entry];
 }
 
 /** Dry-run the schedule with the draft entry so the result shows before saving. */
@@ -793,8 +830,8 @@ function updatePreview() {
         : `<span class="label">Goal</span><span class="what">No penalty released</span>`;
     return;
   }
-  const s = computeSchedule(cfg, [...state.penalties, entry], state.goals);
-  const p = s.penalties.find((x) => x.id === '__draft');
+  const s = computeSchedule(cfg, penaltiesWith(entry), state.goals);
+  const p = s.penalties.find((x) => x.id === entry.id);
   if (p.noClock) {
     box.innerHTML = `<span class="label">Logged only</span>${note('No penalty clock. Log any minor or major with it as its own entry.')}`;
     return;
@@ -813,7 +850,10 @@ function submitSheet(e) {
   e.preventDefault();
   const { entry, error } = readSheet();
   if (!entry) { $('f-error').textContent = error; return; }
-  if (form.mode === 'goal') {
+  if (form.editId) {
+    // Same id and same place in entry order, so tie-breaks with other entries don't change.
+    state.penalties = penaltiesWith(entry);
+  } else if (form.mode === 'goal') {
     entry.id = nextId('g');
     state.goals.push(entry);
   } else {
@@ -833,7 +873,7 @@ function submitSheet(e) {
 
   closeSheet();
   render();
-  const what = form.mode === 'goal' ? 'Goal added' : 'Penalty added';
+  const what = form.editId ? 'Penalty updated' : form.mode === 'goal' ? 'Goal added' : 'Penalty added';
   toast(moved ? `${what}. Scoreboard now set to ${fmtPosition(state.config, toElapsed(state.config, entry.period, entry.clock))}.` : what);
 }
 
@@ -1005,14 +1045,22 @@ function wire() {
   });
   $('check-clear').onclick = () => { state.check = { period: null, clock: null }; cc.value = ''; render(); };
 
-  // Board: show/hide finished
+  // Board: show/hide finished, tap a penalty to edit it
   $('board').addEventListener('click', (e) => {
     const b = e.target.closest('[data-done]');
-    if (b) { showDone[b.dataset.done] = !showDone[b.dataset.done]; render(); }
+    if (b) { showDone[b.dataset.done] = !showDone[b.dataset.done]; render(); return; }
+    const row = e.target.closest('[data-edit]');
+    if (row) openEditSheet(row.dataset.edit);
+  });
+  $('board').addEventListener('keydown', (e) => {
+    const row = (e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-edit]');
+    if (row) { e.preventDefault(); openEditSheet(row.dataset.edit); }
   });
 
-  // Log: delete with two taps
+  // Log: edit, or delete with two taps
   $('log').addEventListener('click', (e) => {
+    const ed = e.target.closest('[data-edit]');
+    if (ed) { openEditSheet(ed.dataset.edit); return; }
     const b = e.target.closest('[data-del]');
     if (!b) return;
     confirmTap(b, 'Confirm', () => {

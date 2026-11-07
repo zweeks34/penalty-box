@@ -229,6 +229,10 @@ input.clock-input { width: 5em; flex: 0 0 auto; text-align: center; font-size: 1
 .pen-who .st.wait::before, .pen-who .st.later::before { border: 2px solid var(--fg); }
 .pen-who .st.out::before { border-radius: 1px; background: var(--fg); }
 .pen-who .st.end::before { display: none; }
+/* Tap a penalty to edit it */
+.pen[data-edit] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pen[data-edit]:active { background-color: color-mix(in srgb, var(--fg) 6%, transparent); }
+.pen[data-edit]:focus-visible { outline: 2px solid var(--fg); outline-offset: -2px; }
 .pen.done { opacity: 0.55; }
 .pen.done .pen-when .time { color: var(--muted); }
 /* Assessed after the "Scoreboard now" time: listed, hatched, not in the box yet */
@@ -252,6 +256,8 @@ input.clock-input { width: 5em; flex: 0 0 auto; text-align: center; font-size: 1
 .log .d b.h { color: var(--home-t); }
 .log .d b.a { color: var(--away-t); }
 .log .x { min-height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; font: 600 0.75rem/1 var(--f-display); letter-spacing: 0.06em; text-transform: uppercase; }
+/* Edit over Delete: stacked, so the description keeps its width at 360 px */
+.log .acts { display: grid; gap: 6px; }
 .log .x.confirming { background: var(--danger); border-color: var(--danger); color: var(--on-accent); }
 .row-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .copy-fallback { min-height: 160px; font-family: var(--f-mono); font-size: 0.8rem; }
@@ -315,15 +321,16 @@ input.clock-input { width: 5em; flex: 0 0 auto; text-align: center; font-size: 1
 /* Small labels are sentence case in the sheet */
 .sheet .field > span { font: 600 0.9rem/1.2 var(--f-body); letter-spacing: 0; text-transform: none; color: var(--muted); }
 
-/* Player # and game clock share one row near the top, above the phone keyboard.
+/* Game clock and player # share one row near the top, above the number pad.
    It wraps only when overtime adds a fourth period button. */
 .who-when { display: flex; flex-wrap: wrap; gap: 12px; align-items: start; }
-.who-when > .field:last-child { flex: 1 1 auto; }
+/* Basis 0 + the input's min-width: one row at 360 px with 3 periods; wraps with OT */
+.who-when > .clock-field { flex: 1 1 0; }
 .field.num { flex: 0 0 68px; }
 .field.num input { min-height: 48px; padding-inline: 6px; text-align: center; font: 600 1.35rem/1 var(--f-clock); font-variant-numeric: tabular-nums; }
 .when { display: flex; gap: 8px; align-items: center; }
 .when .seg button { min-height: 46px; }
-.when .clock-input { width: 4.2em; min-height: 48px; font-size: 1.4rem; }
+.when .clock-input { flex: 0 1 4.2em; width: 4.2em; min-width: 3.6em; min-height: 48px; font-size: 1.4rem; }
 
 /* Copies "Scoreboard now" into the entry */
 .btn-ghost.use-clock { justify-self: start; min-height: 44px; padding: 0 12px; border-color: var(--line); color: var(--fg); font: 600 1rem/1 var(--f-clock); font-variant-numeric: tabular-nums; }

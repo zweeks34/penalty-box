@@ -134,11 +134,10 @@
 
     <div class="seg team-seg" id="f-team" role="radiogroup" aria-label="Team"></div>
 
-    <!-- Everything you type sits in one row near the top, so it stays above the phone keyboard -->
+    <!-- Everything you type sits in one row near the top, so it stays above the number pad.
+         Clock first: it's entered first, then the player # (app.js nextPadField). -->
     <div class="who-when">
-      <label class="field num" data-for="penalty"><span>Player #</span><input id="f-player" type="text" inputmode="none" maxlength="3"></label>
-      <label class="field num" data-for="goal"><span>Scorer #</span><input id="f-scorer" type="text" inputmode="none" maxlength="3"></label>
-      <div class="field">
+      <div class="field clock-field">
         <span>Game clock</span>
         <div class="when">
           <div class="seg" id="f-period" role="radiogroup" aria-label="Period"></div>
@@ -146,6 +145,8 @@
         </div>
         <button type="button" class="btn-ghost small use-clock" id="f-use-clock" hidden></button>
       </div>
+      <label class="field num" data-for="penalty"><span>Player #</span><input id="f-player" type="text" inputmode="none" maxlength="3"></label>
+      <label class="field num" data-for="goal"><span>Scorer #</span><input id="f-scorer" type="text" inputmode="none" maxlength="3"></label>
     </div>
 
     <div class="field" data-for="penalty">
