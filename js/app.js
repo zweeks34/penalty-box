@@ -499,7 +499,7 @@ function renderLog() {
     ? entries.map((e) => `<li>
         <span class="t">${esc(e.time)}</span>
         <span class="d"><b class="${e.team === 'home' ? 'h' : 'a'}">${esc(teamName(e.team))}</b> ${esc(e.text)}</span>
-        <span class="acts">${e.kind === 'penalty' ? `<button class="x" type="button" data-edit="${e.id}" aria-label="Edit penalty">Edit</button>` : ''}<button class="x" type="button" data-del="${e.id}" aria-label="Delete entry">Delete</button></span>
+        <span class="acts"><button class="x" type="button" data-edit="${e.id}" aria-label="Edit ${e.kind}">Edit</button><button class="x" type="button" data-del="${e.id}" aria-label="Delete entry">Delete</button></span>
       </li>`).join('')
     : '<li class="empty">Nothing logged yet. Use the buttons below to add a penalty or goal.</li>';
 }
@@ -688,8 +688,17 @@ function openSheet(mode, team) {
   updatePreview();
 }
 
-/** Open a logged penalty in the sheet, filled in, to change what the referee changed. */
+/** Open a logged penalty or goal in the sheet, filled in, to change what the referee changed. */
 function openEditSheet(id) {
+  const g = state.goals.find((x) => x.id === id);
+  if (g) {
+    Object.assign(form, { mode: 'goal', team: g.team, period: g.period, editId: g.id });
+    showSheet();
+    $('f-clock').value = fmtClock(g.clock);
+    $('f-scorer').value = g.scorer ?? '';
+    updatePreview();
+    return;
+  }
   const p = state.penalties.find((x) => x.id === id);
   if (!p) return;
   Object.assign(form, {
@@ -715,7 +724,8 @@ function showSheet() {
   f.reset();
   $('f-clock').value = '';
   f.querySelectorAll('[data-for]').forEach((el) => { el.hidden = el.dataset.for !== mode; });
-  $('sheet-title').textContent = editId ? 'Edit penalty' : mode === 'goal' ? 'Goal' : 'Penalty';
+  const noun = mode === 'goal' ? 'goal' : 'penalty';
+  $('sheet-title').textContent = editId ? `Edit ${noun}` : noun[0].toUpperCase() + noun.slice(1);
   $('f-submit').textContent = editId ? 'Save changes' : mode === 'goal' ? 'Add goal' : 'Add penalty';
   $('f-error').textContent = '';
   $('f-infraction').innerHTML = `<option value="">—</option>${INFRACTIONS.map((i) => `<option>${esc(i)}</option>`).join('')}`;
@@ -784,7 +794,7 @@ function readSheet() {
   if (clock == null) return { error: 'Enter the game clock, e.g. 10:34.' };
   if (clock > len) return { error: `${periodLabel(state.config, form.period)} is only ${fmtClock(len)} long.` };
   if (form.mode === 'goal') {
-    return { entry: { id: '__draft', team: form.team, period: form.period, clock, scorer: $('f-scorer').value.trim() } };
+    return { entry: { id: form.editId ?? '__draft', team: form.team, period: form.period, clock, scorer: $('f-scorer').value.trim() } };
   }
   const player = $('f-player').value.trim();
   const servedBy = $('f-served').value.trim();
@@ -799,11 +809,11 @@ function readSheet() {
   };
 }
 
-/** The penalties with the sheet's entry in place: replacing the one being edited, or added. */
-function penaltiesWith(entry) {
+/** A list (penalties or goals) with the sheet's entry in place: replacing the one being edited, or added. */
+function withEntry(list, entry) {
   return form.editId
-    ? state.penalties.map((p) => (p.id === form.editId ? entry : p))
-    : [...state.penalties, entry];
+    ? list.map((x) => (x.id === form.editId ? entry : x))
+    : [...list, entry];
 }
 
 /** Dry-run the schedule with the draft entry so the result shows before saving. */
@@ -819,10 +829,10 @@ function updatePreview() {
   }
   const cfg = state.config;
   if (form.mode === 'goal') {
-    const s = computeSchedule(cfg, state.penalties, [...state.goals, entry]);
-    const g = s.goals.find((x) => x.id === '__draft');
+    const s = computeSchedule(cfg, state.penalties, withEntry(state.goals, entry));
+    const g = s.goals.find((x) => x.id === entry.id);
     const rel = g.released && s.penalties.find((p) => p.id === g.released);
-    const half = s.penalties.find((p) => p.halfReleasedBy === '__draft');
+    const half = s.penalties.find((p) => p.halfReleasedBy === entry.id);
     box.innerHTML = rel
       ? `<span class="label">Power-play goal</span><span class="what">Releases ${esc(whoText(rel))}</span>`
       : half
@@ -830,7 +840,7 @@ function updatePreview() {
         : `<span class="label">Goal</span><span class="what">No penalty released</span>`;
     return;
   }
-  const s = computeSchedule(cfg, penaltiesWith(entry), state.goals);
+  const s = computeSchedule(cfg, withEntry(state.penalties, entry), state.goals);
   const p = s.penalties.find((x) => x.id === entry.id);
   if (p.noClock) {
     box.innerHTML = `<span class="label">Logged only</span>${note('No penalty clock. Log any minor or major with it as its own entry.')}`;
@@ -852,7 +862,8 @@ function submitSheet(e) {
   if (!entry) { $('f-error').textContent = error; return; }
   if (form.editId) {
     // Same id and same place in entry order, so tie-breaks with other entries don't change.
-    state.penalties = penaltiesWith(entry);
+    if (form.mode === 'goal') state.goals = withEntry(state.goals, entry);
+    else state.penalties = withEntry(state.penalties, entry);
   } else if (form.mode === 'goal') {
     entry.id = nextId('g');
     state.goals.push(entry);
@@ -873,7 +884,7 @@ function submitSheet(e) {
 
   closeSheet();
   render();
-  const what = form.editId ? 'Penalty updated' : form.mode === 'goal' ? 'Goal added' : 'Penalty added';
+  const what = `${form.mode === 'goal' ? 'Goal' : 'Penalty'} ${form.editId ? 'updated' : 'added'}`;
   toast(moved ? `${what}. Scoreboard now set to ${fmtPosition(state.config, toElapsed(state.config, entry.period, entry.clock))}.` : what);
 }
 
